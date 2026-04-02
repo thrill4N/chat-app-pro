@@ -1,0 +1,79 @@
+/* Tailwind CSS imports and global styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom global styles and animations */
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-purple-500 to-pink-500 min-h-screen font-sans antialiased;
+  }
+  
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-purple-400 rounded-full hover:bg-purple-500 transition-colors;
+  }
+}
+
+@layer components {
+  /* Message bubble animations */
+  .message-enter {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  /* Typing indicator dots animation */
+  .typing-dot {
+    animation: typingBounce 1.4s infinite;
+  }
+  
+  .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  
+  .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Pulse animation for online status */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-online {
+  animation: pulse 2s ease-in-out infinite;
+}
