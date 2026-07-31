@@ -1,0 +1,26 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Baked into the frontend JS at build time (public key, safe to embed).
+        # NOTE: build-arg substitution reads from a root-level .env (or your
+        # shell env) — NOT from backend/.env — because Compose only loads
+        # env_file into the running container, not into the build step.
+        # Easiest fix: `export VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxx` before
+        # running `docker compose build`, or add a one-line root .env with
+        # just that var.
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+    # All runtime secrets (MONGO_URI pointing at Atlas, Clerk keys,
+    # ImageKit key, AI agent key) come from here — same file the app
+    # already uses locally. Nothing in this compose file talks to a local
+    # Mongo container; Atlas is reached over the network like normal.
+    env_file:
+      - backend/.env
+    restart: unless-stopped
