@@ -19,6 +19,7 @@ import clerkWebhook from "./webhooks/clerk.webhook.js";
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
 import userRoutes from "./routes/user.route.js";
+import roomRoutes from "./routes/room.route.js";
 import { app, server } from "./lib/socket.js";
 
 const PORT = process.env.PORT;
@@ -56,6 +57,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/rooms", roomRoutes);
 
 // if the public directory exists, serve the static files
 // this is for the production build
