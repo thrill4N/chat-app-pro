@@ -8,6 +8,20 @@ const MAX_TEXT_LENGTH = 5000;
 const DEFAULT_MESSAGE_LIMIT = 50;
 const MAX_MESSAGE_LIMIT = 100;
 
+// Shared by both 1:1 and room message sending, so the upload branching
+// logic (image vs video, config check) lives in exactly one place.
+async function uploadMediaIfPresent(file) {
+  if (!file) return {};
+  if (!hasImageKitConfig()) {
+    const error = new Error("Media upload is not configured");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const url = await uploadChatMedia(file);
+  return file.mimetype.startsWith("video/") ? { videoUrl: url } : { imageUrl: url };
+}
+
 export async function getUsersForSidebar(req, res) {
   try {
     const loggedInUserId = req.user._id;
@@ -127,14 +141,10 @@ export async function sendMessage(req, res) {
     let imageUrl;
     let videoUrl;
 
-    if (req.file) {
-      if (!hasImageKitConfig()) {
-        return res.status(500).json({ message: "Media upload is not configured" });
-      }
-
-      const url = await uploadChatMedia(req.file);
-      if (req.file.mimetype.startsWith("video/")) videoUrl = url;
-      else imageUrl = url;
+    try {
+      ({ imageUrl, videoUrl } = await uploadMediaIfPresent(req.file));
+    } catch (uploadError) {
+      return res.status(uploadError.statusCode || 500).json({ message: uploadError.message });
     }
 
     const newMessage = new Message({
@@ -156,6 +166,74 @@ export async function sendMessage(req, res) {
     res.status(201).json(newMessage);
   } catch (error) {
     console.error("Error in sendMessage:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+// GET /api/rooms/:roomId/messages  (requireRoomMember already verified membership)
+export async function getRoomMessages(req, res) {
+  try {
+    const roomId = req.room._id;
+
+    let limit = parseInt(req.query.limit, 10);
+    if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_MESSAGE_LIMIT;
+    limit = Math.min(limit, MAX_MESSAGE_LIMIT);
+
+    const query = { roomId };
+    if (req.query.before) {
+      const beforeDate = new Date(req.query.before);
+      if (!Number.isNaN(beforeDate.getTime())) {
+        query.createdAt = { $lt: beforeDate };
+      }
+    }
+
+    const messages = await Message.find(query).sort({ createdAt: -1 }).limit(limit).lean();
+
+    res.status(200).json(messages.reverse());
+  } catch (error) {
+    console.error("Error in getRoomMessages:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+// POST /api/rooms/:roomId/messages  (requireRoomMember already verified membership)
+export async function sendRoomMessage(req, res) {
+  try {
+    const room = req.room;
+    const senderId = req.user._id;
+    const text = typeof req.body.text === "string" ? req.body.text.trim() : undefined;
+
+    if (!text && !req.file) {
+      return res.status(400).json({ message: "Message must include text or media" });
+    }
+    if (text && text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({ message: `Message text cannot exceed ${MAX_TEXT_LENGTH} characters` });
+    }
+
+    let imageUrl;
+    let videoUrl;
+
+    try {
+      ({ imageUrl, videoUrl } = await uploadMediaIfPresent(req.file));
+    } catch (uploadError) {
+      return res.status(uploadError.statusCode || 500).json({ message: uploadError.message });
+    }
+
+    const newMessage = await Message.create({
+      senderId,
+      roomId: room._id,
+      text,
+      image: imageUrl,
+      video: videoUrl,
+    });
+
+    // Broadcast to every currently-connected member of the room in one call,
+    // instead of looking up and emitting to each member's socket individually.
+    io.to(room._id.toString()).emit("newRoomMessage", newMessage);
+
+    res.status(201).json(newMessage);
+  } catch (error) {
+    console.error("Error in sendRoomMessage:", error.message);
     res.status(500).json({ message: "Internal server error" });
   }
 }
