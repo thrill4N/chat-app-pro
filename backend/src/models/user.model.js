@@ -59,6 +59,10 @@ const userSchema = new mongoose.Schema(
       enum: ["everyone", "nobody"],
       default: "everyone",
     },
+    isBot: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }, // createdAt & updatedAt
 );

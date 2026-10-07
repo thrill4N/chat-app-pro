@@ -4,10 +4,10 @@ import https from "node:https";
 
 // every 14 minutes send a GET request to the health endpoint
 const job = new CronJob("*/14 * * * *", function () {
-  const base = process.env.FRONTEND_URL;
-  if (!base) return;
-  const url = new URL("/health", base).href;
-  const client = url.startsWith("https:") ? https : http;
+  const healthUrl = process.env.HEALTHCHECK_URL;
+  if (!healthUrl) return;
+  const url = new URL(healthUrl);
+  const client = url.protocol === "https:" ? https : http;
 
   client
     .get(url, (res) => {

@@ -41,6 +41,22 @@ const messageSchema = new mongoose.Schema(
     video: {
       type: String,
     },
+    file: {
+      url: { type: String },
+      name: { type: String },
+      mimeType: { type: String },
+      size: { type: Number },
+    },
+    fileScanStatus: {
+      type: String,
+      enum: ["none", "pending", "clean", "flagged"],
+      default: "none",
+    },
+    moderationStatus: {
+      type: String,
+      enum: ["none", "pending", "clean", "flagged"],
+      default: "none",
+    },
   },
   { timestamps: true },
 );

@@ -1,4 +1,12 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
   app:
     build:
       context: .
@@ -17,6 +25,10 @@ services:
     environment:
       PORT: 3001
       NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      HEALTHCHECK_URL: http://localhost:3001/health
+    depends_on:
+      - redis
     # All runtime secrets (MONGO_URI pointing at Atlas, Clerk keys,
     # ImageKit key, AI agent key) come from here — same file the app
     # already uses locally. Nothing in this compose file talks to a local
@@ -24,3 +36,6 @@ services:
     env_file:
       - backend/.env
     restart: unless-stopped
+
+volumes:
+  redis-data:

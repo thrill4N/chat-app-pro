@@ -1,11 +1,15 @@
 import express from "express";
 import {
   addMember,
+  approveJoinRequest,
   createRoom,
+  denyJoinRequest,
   getRoom,
   leaveRoom,
+  listJoinRequests,
   listMyRooms,
   removeMember,
+  requestRoomAccess,
   updateMemberRole,
 } from "../controllers/room.controller.js";
 import { getRoomMessages, sendRoomMessage } from "../controllers/message.controller.js";
@@ -19,6 +23,7 @@ router.use(protectRoute);
 
 router.post("/", createRoom);
 router.get("/", listMyRooms);
+router.post("/:roomId/join-requests", requestRoomAccess);
 
 // Every route below acts on one specific room, so membership is checked
 // once, up front, for all of them.
@@ -26,6 +31,9 @@ router.use("/:roomId", requireRoomMember);
 
 router.get("/:roomId", getRoom);
 router.post("/:roomId/leave", leaveRoom);
+router.get("/:roomId/join-requests", requireRoomAdmin, listJoinRequests);
+router.post("/:roomId/join-requests/:requestId/approve", requireRoomAdmin, approveJoinRequest);
+router.post("/:roomId/join-requests/:requestId/deny", requireRoomAdmin, denyJoinRequest);
 
 router.get("/:roomId/messages", getRoomMessages);
 router.post("/:roomId/messages", upload.single("media"), sendRoomMessage);

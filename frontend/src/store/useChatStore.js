@@ -26,13 +26,19 @@ export const useChatStore = create(
         set({ isUsersLoading: true });
         try {
           const res = await axiosInstance.get("/messages/users");
-          set((state) => ({
-            users: res.data,
-            selectedUser:
+          set((state) => {
+            const assistantUser = res.data.find((user) => user.isBot);
+            const nextSelectedUser =
               state.selectedUser && res.data.some((user) => user._id === state.selectedUser._id)
                 ? state.selectedUser
-                : null,
-          }));
+                : assistantUser || null;
+
+            return {
+              users: res.data,
+              selectedUser: nextSelectedUser,
+              activeConversationId: nextSelectedUser ? nextSelectedUser._id : state.activeConversationId,
+            };
+          });
         } catch (error) {
           console.error("Error in getUsers:", error.message);
         } finally {
@@ -44,7 +50,20 @@ export const useChatStore = create(
         set({ isConversationsLoading: true });
         try {
           const res = await axiosInstance.get("/messages/conversations");
-          set({ conversations: res.data });
+          set((state) => {
+            const assistantConversation = res.data.find((user) => user.isBot);
+            const nextActiveConversationId =
+              state.activeConversationId || (assistantConversation ? assistantConversation._id : null);
+
+            return {
+              conversations: res.data,
+              activeConversationId: nextActiveConversationId,
+              selectedUser:
+                state.selectedUser && res.data.some((user) => user._id === state.selectedUser._id)
+                  ? state.selectedUser
+                  : assistantConversation || state.selectedUser || null,
+            };
+          });
         } catch (error) {
           console.error("Error in getConversations:", error.message);
         } finally {

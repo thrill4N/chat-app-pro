@@ -46,6 +46,11 @@ const roomSchema = new mongoose.Schema(
       default: "",
       maxlength: 300,
     },
+    accessMode: {
+      type: String,
+      enum: ["invite_only", "request_to_join"],
+      default: "invite_only",
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

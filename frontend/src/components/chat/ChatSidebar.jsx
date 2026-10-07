@@ -1,12 +1,16 @@
 import { getInitials, useSelectedConversation } from "../../hooks/useSelectedConversation";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
+import { useRoomStore } from "../../store/useRoomStore";
 import { APP_NAME, AppLogo } from "../AppLogo";
 import { UserButton } from "@clerk/react";
 import { ProfileSettingsModal } from "../settings/ProfileSettingsModal";
+import { CreateRoomModal } from "../rooms/CreateRoomModal";
+import { RoomListItem } from "../rooms/RoomListItem";
 
 import { SearchField, Tabs } from "@heroui/react";
-import { MessageSquareIcon, UsersIcon } from "lucide-react";
+import { MessageSquareIcon, UsersIcon, UsersRoundIcon, NewspaperIcon } from "lucide-react";
+import { Link } from "react-router";
 import { ConversationRow } from "./ConversationRow";
 
 function mapUserForList(user, onlineUsers) {
@@ -41,7 +45,16 @@ function ChatSidebar() {
 
   const onlineUsers = useAuthStore((state) => state.onlineUsers);
 
+  const rooms = useRoomStore((state) => state.rooms);
+  const activeRoomId = useRoomStore((state) => state.activeRoomId);
+  const setActiveRoomId = useRoomStore((state) => state.setActiveRoomId);
+
   const { activeConversationId, isLargeScreen } = useSelectedConversation();
+
+  const selectConversation = (id) => {
+    if (activeRoomId) setActiveRoomId(null);
+    setActiveConversationId(id);
+  };
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -57,6 +70,10 @@ function ChatSidebar() {
   const filteredUsers = normalizedSearchQuery
     ? allUsers.filter((user) => user.name.toLowerCase().includes(normalizedSearchQuery))
     : allUsers;
+
+  const filteredRooms = normalizedSearchQuery
+    ? rooms.filter((room) => room.name.toLowerCase().includes(normalizedSearchQuery))
+    : rooms;
 
   return (
     <aside
@@ -78,6 +95,16 @@ function ChatSidebar() {
               },
             }}
           />
+        </div>
+
+        <div className="mt-2">
+          <Link
+            to="/feed"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground/80 transition hover:border-primary/60 hover:text-foreground"
+          >
+            <NewspaperIcon className="size-4" />
+            Community feed
+          </Link>
         </div>
       </div>
 
@@ -113,6 +140,10 @@ function ChatSidebar() {
               <UsersIcon className="size-3.5 opacity-80" aria-hidden />
               Users
             </Tabs.Tab>
+            <Tabs.Tab id="rooms" className="flex-1 justify-center gap-1.5">
+              <UsersRoundIcon className="size-3.5 opacity-80" aria-hidden />
+              Rooms
+            </Tabs.Tab>
           </Tabs.List>
         </Tabs.ListContainer>
 
@@ -130,7 +161,7 @@ function ChatSidebar() {
                 key={conversation.id}
                 user={conversation}
                 selected={conversation.id === activeConversationId}
-                onSelect={() => setActiveConversationId(conversation.id)}
+                onSelect={() => selectConversation(conversation.id)}
               />
             ))
           )}
@@ -145,9 +176,26 @@ function ChatSidebar() {
                 key={user.conversationId}
                 user={user}
                 selected={user.conversationId === activeConversationId}
-                onSelect={() => setActiveConversationId(user.conversationId)}
+                onSelect={() => selectConversation(user.conversationId)}
               />
             ))
+          )}
+        </Tabs.Panel>
+
+        <Tabs.Panel id="rooms" className="flex-1 overflow-x-hidden overflow-y-auto outline-none">
+          <div className="px-2 pb-2 pt-2">
+            <CreateRoomModal />
+          </div>
+          {filteredRooms.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted">
+              No rooms yet -- create one to get started.
+            </p>
+          ) : (
+            <div className="space-y-0.5 px-1">
+              {filteredRooms.map((room) => (
+                <RoomListItem key={room._id} room={room} />
+              ))}
+            </div>
           )}
         </Tabs.Panel>
       </Tabs>

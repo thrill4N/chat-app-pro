@@ -1,0 +1,75 @@
+node_modules/
+dist/
+
+# Documentation and local project notes
+docs/
+**/docs/
+
+# Local environment and secret files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.secret
+*.secrets
+secrets/
+**/secrets/
+.npmrc
+**/.npmrc
+
+# Local development and sensitive generated files
+*.local
+*.development
+*.production
+*.staging
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+
+# Private keys and certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+
+# Local databases and exports
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz
+database-dumps/
+**/database-dumps/
+
+# Logs and runtime output
+*.log
+logs/
+*.pid
+*.pid.lock
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Vite and tool caches
+.vite/
+.cache/
+
+# Local editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
