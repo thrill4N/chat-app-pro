@@ -1,10 +1,15 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
+import { verifyToken } from "@clerk/express";
 import Room from "../models/room.model.js";
 
 const app = express();
 const server = http.createServer(app);
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true });
+});
 
 const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
 
@@ -16,6 +21,38 @@ function getReceiverSocketId(userId) {
 
 // online users map = { userId: socketId }
 const userSocketMap = {};
+
+async function resolveSocketUserFromHandshake(handshake) {
+  const providedUserId = handshake?.query?.userId ?? null;
+  const rawToken =
+    handshake?.auth?.token ||
+    handshake?.query?.token ||
+    (typeof handshake?.headers?.authorization === "string"
+      ? handshake.headers.authorization.replace(/^Bearer\s+/i, "")
+      : "");
+
+  if (!rawToken || !process.env.CLERK_SECRET_KEY) {
+    return null;
+  }
+
+  try {
+    const payload = await verifyToken(rawToken);
+    const verifiedUserId = payload?.sub ?? payload?.userId ?? payload?.user?.id ?? null;
+
+    if (!verifiedUserId) {
+      return null;
+    }
+
+    if (providedUserId && verifiedUserId !== providedUserId) {
+      return null;
+    }
+
+    return verifiedUserId;
+  } catch (error) {
+    console.error("Socket auth failed:", error.message);
+    return null;
+  }
+}
 
 // Socket.io's own "rooms" feature (a socket can be a member of many named
 // channels) is what makes group broadcast a one-liner: io.to(roomId).emit(...)
@@ -42,24 +79,35 @@ function removeUserFromRoom(userId, roomId) {
   io.sockets.sockets.get(socketId)?.leave(roomId.toString());
 }
 
-io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
+io.on("connection", async (socket) => {
+  const userId = await resolveSocketUserFromHandshake(socket.handshake);
 
-  if (userId) {
-    userSocketMap[userId] = socket.id;
-    joinUserRooms(socket, userId).catch((error) =>
-      console.error("Error joining rooms on connect:", error.message),
-    );
+  if (!userId) {
+    socket.disconnect(true);
+    return;
   }
+
+  userSocketMap[userId] = socket.id;
+  joinUserRooms(socket, userId).catch((error) =>
+    console.error("Error joining rooms on connect:", error.message),
+  );
 
   // io.emit() sends event to everyone - broadcast
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   // socket.on is used to listen for events
   socket.on("disconnect", () => {
-    if (userId) delete userSocketMap[userId];
+    delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });
 
-export { app, server, io, getReceiverSocketId, joinUserToRoom, removeUserFromRoom };
+export {
+  app,
+  server,
+  io,
+  getReceiverSocketId,
+  joinUserToRoom,
+  removeUserFromRoom,
+  resolveSocketUserFromHandshake,
+};

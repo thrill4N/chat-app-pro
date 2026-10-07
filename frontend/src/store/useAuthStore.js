@@ -3,7 +3,9 @@ import { axiosInstance } from "../lib/axios";
 import { io } from "socket.io-client";
 import toast from "react-hot-toast";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  (import.meta.env.MODE === "development" ? "http://localhost:5001" : undefined);
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -19,7 +21,7 @@ export const useAuthStore = create((set, get) => ({
       const res = await axiosInstance.get("/auth/check");
       set({ authUser: res.data });
 
-      get().connectSocket(res.data);
+      await get().connectSocket(res.data);
     } catch (error) {
       console.error("Error in checkAuth:", error);
       set({ authUser: null });
@@ -51,10 +53,22 @@ export const useAuthStore = create((set, get) => ({
     get().disconnectSocket();
   },
 
-  connectSocket: (user) => {
+  connectSocket: async (user) => {
     if (!user || get().socket?.connected) return;
 
-    const socket = io(BASE_URL, { query: { userId: user._id } });
+    let sessionToken = null;
+    if (typeof window !== "undefined" && window.Clerk?.session?.getToken) {
+      try {
+        sessionToken = await window.Clerk.session.getToken();
+      } catch (error) {
+        console.error("Failed to fetch Clerk session token:", error);
+      }
+    }
+
+    const socket = io(SOCKET_URL, {
+      auth: { token: sessionToken },
+      query: { userId: user._id },
+    });
 
     set({ socket });
 
