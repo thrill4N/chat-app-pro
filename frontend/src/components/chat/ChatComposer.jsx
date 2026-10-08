@@ -1,9 +1,10 @@
 import { Button, TextArea } from "@heroui/react";
 import { ImageIcon, LoaderIcon, SendHorizontalIcon } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import useKeyboardSound from "../../hooks/useKeyboardSound";
 import { useChatStore } from "../../store/useChatStore";
 import { useSelectedConversation } from "../../hooks/useSelectedConversation";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export function ChatComposer() {
   const composerText = useChatStore((state) => state.composerText);
@@ -15,18 +16,45 @@ export function ChatComposer() {
   const { activeConversationId } = useSelectedConversation();
   const { playRandomKeyStrokeSound } = useKeyboardSound();
   const mediaInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const playSoundIfEnabled = () => {
     if (isSoundEnabled) playRandomKeyStrokeSound();
   };
 
+  const emitTypingState = (isTyping) => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket || !activeConversationId) return;
+    socket.emit(isTyping ? "typing:start" : "typing:stop", { toUserId: activeConversationId });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      const socket = useAuthStore.getState().socket;
+      if (socket && activeConversationId) {
+        socket.emit("typing:stop", { toUserId: activeConversationId });
+      }
+    };
+  }, [activeConversationId]);
+
   const handleSend = async () => {
+    emitTypingState(false);
     const didSendMessage = await sendTextMessage(activeConversationId);
     if (didSendMessage) playSoundIfEnabled();
   };
 
   const handleComposerTextChange = (event) => {
-    setComposerText(event.target.value);
+    const nextValue = event.target.value;
+    setComposerText(nextValue);
+    const shouldEmitTyping = nextValue.trim().length > 0;
+
+    emitTypingState(shouldEmitTyping);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (shouldEmitTyping) {
+      typingTimeoutRef.current = setTimeout(() => emitTypingState(false), 1400);
+    }
+
     playSoundIfEnabled();
   };
 

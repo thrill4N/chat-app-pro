@@ -11,6 +11,7 @@ export const useAuthStore = create((set, get) => ({
   authUser: null,
   isCheckingAuth: true,
   isUpdatingProfile: false,
+  isUploadingProfilePicture: false,
   onlineUsers: [],
   socket: null,
 
@@ -30,9 +31,8 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Only app-owned fields (username, bio, status, lastSeenPolicy) go through
-  // this endpoint. fullName/email/profilePic stay Clerk-sourced and are
-  // edited through Clerk's own account UI, not here.
+  // App-owned profile fields are collected here during onboarding and profile
+  // setup, including username, bio, and profilePic before a user can access chat.
   updateProfile: async (updates) => {
     set({ isUpdatingProfile: true });
     try {
@@ -45,6 +45,21 @@ export const useAuthStore = create((set, get) => ({
       return false;
     } finally {
       set({ isUpdatingProfile: false });
+    }
+  },
+
+  uploadProfilePicture: async (file) => {
+    set({ isUploadingProfilePicture: true });
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await axiosInstance.post("/users/me/profile-picture", formData);
+      return res.data.profilePic;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to upload profile picture");
+      return null;
+    } finally {
+      set({ isUploadingProfilePicture: false });
     }
   },
 

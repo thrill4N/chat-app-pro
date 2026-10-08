@@ -3,6 +3,7 @@ import http from "http";
 import { Server } from "socket.io";
 import { verifyToken } from "@clerk/express";
 import Room from "../models/room.model.js";
+import User from "../models/user.model.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -22,6 +23,24 @@ function getReceiverSocketId(userId) {
 // online users map = { userId: socketId }
 const userSocketMap = {};
 
+async function getVisibleOnlineUsers() {
+  const connectedUserIds = Object.keys(userSocketMap);
+  if (!connectedUserIds.length) return [];
+
+  const profiles = await User.find({ _id: { $in: connectedUserIds } })
+    .select("_id showOnlineStatus")
+    .lean();
+
+  return profiles
+    .filter((user) => user.showOnlineStatus !== false)
+    .map((user) => user._id.toString());
+}
+
+async function refreshOnlineUsers() {
+  const visibleUsers = await getVisibleOnlineUsers();
+  io.emit("getOnlineUsers", visibleUsers);
+}
+
 async function resolveSocketUserFromHandshake(handshake) {
   const providedUserId = handshake?.query?.userId ?? null;
   const rawToken =
@@ -37,17 +56,23 @@ async function resolveSocketUserFromHandshake(handshake) {
 
   try {
     const payload = await verifyToken(rawToken);
-    const verifiedUserId = payload?.sub ?? payload?.userId ?? payload?.user?.id ?? null;
+    const verifiedClerkId = payload?.sub ?? payload?.userId ?? payload?.user?.id ?? null;
 
-    if (!verifiedUserId) {
+    if (!verifiedClerkId) {
       return null;
     }
 
-    if (providedUserId && verifiedUserId !== providedUserId) {
+    const localUser = await User.findOne({ clerkId: verifiedClerkId }).select("_id").lean();
+    if (!localUser) {
       return null;
     }
 
-    return verifiedUserId;
+    const localUserId = localUser._id.toString();
+    if (providedUserId && localUserId !== providedUserId) {
+      return null;
+    }
+
+    return localUserId;
   } catch (error) {
     console.error("Socket auth failed:", error.message);
     return null;
@@ -92,13 +117,31 @@ io.on("connection", async (socket) => {
     console.error("Error joining rooms on connect:", error.message),
   );
 
-  // io.emit() sends event to everyone - broadcast
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  await refreshOnlineUsers();
 
-  // socket.on is used to listen for events
+  socket.on("typing:start", async ({ toUserId }) => {
+    if (!toUserId || !userSocketMap[toUserId]) return;
+
+    const senderProfile = await User.findById(userId).select("showTypingIndicator").lean();
+    if (!senderProfile || senderProfile.showTypingIndicator === false) return;
+
+    io.to(userSocketMap[toUserId]).emit("userTyping", { userId, conversationId: toUserId });
+  });
+
+  socket.on("typing:stop", async ({ toUserId }) => {
+    if (!toUserId || !userSocketMap[toUserId]) return;
+
+    const senderProfile = await User.findById(userId).select("showTypingIndicator").lean();
+    if (!senderProfile || senderProfile.showTypingIndicator === false) return;
+
+    io.to(userSocketMap[toUserId]).emit("userStoppedTyping", { userId, conversationId: toUserId });
+  });
+
   socket.on("disconnect", () => {
     delete userSocketMap[userId];
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    refreshOnlineUsers().catch((error) =>
+      console.error("Error refreshing online presence:", error.message),
+    );
   });
 });
 
@@ -110,4 +153,5 @@ export {
   joinUserToRoom,
   removeUserFromRoom,
   resolveSocketUserFromHandshake,
+  refreshOnlineUsers,
 };

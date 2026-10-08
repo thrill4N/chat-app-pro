@@ -21,6 +21,7 @@ export const useChatStore = create(
       composerText: "",
       isSoundEnabled: true,
       isSendingMedia: false,
+      typingUsers: {},
 
       getUsers: async () => {
         set({ isUsersLoading: true });
@@ -106,6 +107,9 @@ export const useChatStore = create(
         if (!socket) return;
 
         socket.off("newMessage");
+        socket.off("userTyping");
+        socket.off("userStoppedTyping");
+
         socket.on("newMessage", (newMessage) => {
           // if im not the receiver don't do anything just return
           if (String(newMessage.senderId) !== String(userId)) return;
@@ -114,11 +118,30 @@ export const useChatStore = create(
 
           get().getConversations();
         });
+
+        socket.on("userTyping", ({ userId: typingUserId }) => {
+          if (String(typingUserId) !== String(userId)) return;
+          set((state) => ({
+            typingUsers: { ...state.typingUsers, [typingUserId]: true },
+          }));
+        });
+
+        socket.on("userStoppedTyping", ({ userId: typingUserId }) => {
+          if (String(typingUserId) !== String(userId)) return;
+          set((state) => {
+            const nextTypingUsers = { ...state.typingUsers };
+            delete nextTypingUsers[typingUserId];
+            return { typingUsers: nextTypingUsers };
+          });
+        });
       },
 
       unsubscribeFromMessages: () => {
         const socket = useAuthStore.getState().socket;
         socket?.off("newMessage");
+        socket?.off("userTyping");
+        socket?.off("userStoppedTyping");
+        set({ typingUsers: {} });
       },
 
       setSelectedUser: (selectedUser) => set({ selectedUser }),
