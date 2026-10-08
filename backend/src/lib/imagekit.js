@@ -9,9 +9,9 @@ function hasImageKitConfig() {
 // originalName= "My Photo (1).png"
 // result: "chat-1749300000000-My_Photo__1_.png"
 // this helper makes a safe, unique filename for uploaded files.
-function createFileName(originalName = "upload") {
+function createFileName(originalName = "upload", prefix = "chat") {
   const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return `chat-${Date.now()}-${safeName}`;
+  return `${prefix}-${Date.now()}-${safeName}`;
 }
 
 /**
@@ -30,4 +30,16 @@ async function uploadChatMedia(file) {
   return result.url;
 }
 
-export { uploadChatMedia, hasImageKitConfig };
+async function uploadProfilePicture(file) {
+  const fileName = createFileName(file.originalname, "profile");
+
+  const result = await imagekit.files.upload({
+    file: await toFile(file.buffer, fileName, { type: file.mimetype }),
+    fileName,
+    folder: "/profiles",
+  });
+
+  return result.url;
+}
+
+export { uploadChatMedia, uploadProfilePicture, hasImageKitConfig };

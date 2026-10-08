@@ -3,5 +3,11 @@ export async function checkAuth(req, res, next) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  res.status(200).json(req.user);
+  const userDoc = req.user.toObject ? req.user.toObject() : req.user;
+  const profileSetupRequired = !userDoc.username || !userDoc.bio || !userDoc.profilePic;
+
+  res.status(200).json({
+    ...userDoc,
+    profileSetupRequired,
+  });
 }

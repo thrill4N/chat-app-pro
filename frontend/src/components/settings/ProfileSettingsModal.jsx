@@ -18,9 +18,22 @@ function ProfileForm({ authUser, onClose }) {
   const [bio, setBio] = useState(() => authUser?.bio || "");
   const [status, setStatus] = useState(() => authUser?.status || "");
   const [lastSeenPolicy, setLastSeenPolicy] = useState(() => authUser?.lastSeenPolicy || "everyone");
+  const [showOnlineStatus, setShowOnlineStatus] = useState(
+    authUser?.showOnlineStatus ?? authUser?.lastSeenPolicy !== "nobody",
+  );
+  const [showTypingIndicator, setShowTypingIndicator] = useState(
+    authUser?.showTypingIndicator ?? true,
+  );
 
   const handleSave = async () => {
-    const didUpdate = await updateProfile({ username, bio, status, lastSeenPolicy });
+    const didUpdate = await updateProfile({
+      username,
+      bio,
+      status,
+      lastSeenPolicy,
+      showOnlineStatus,
+      showTypingIndicator,
+    });
     if (didUpdate) onClose();
   };
 
@@ -69,12 +82,40 @@ function ProfileForm({ authUser, onClose }) {
           <select
             id="last-seen-policy"
             value={lastSeenPolicy}
-            onChange={(event) => setLastSeenPolicy(event.target.value)}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setLastSeenPolicy(nextValue);
+              setShowOnlineStatus(nextValue === "everyone");
+            }}
             className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground"
           >
             <option value="everyone">Everyone</option>
             <option value="nobody">Nobody</option>
           </select>
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-border bg-surface/60 p-3">
+          <label className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
+            <span>Show online status</span>
+            <input
+              type="checkbox"
+              checked={showOnlineStatus}
+              onChange={(event) => {
+                const nextValue = event.target.checked;
+                setShowOnlineStatus(nextValue);
+                setLastSeenPolicy(nextValue ? "everyone" : "nobody");
+              }}
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
+            <span>Typing indicators</span>
+            <input
+              type="checkbox"
+              checked={showTypingIndicator}
+              onChange={(event) => setShowTypingIndicator(event.target.checked)}
+            />
+          </label>
         </div>
       </Modal.Body>
 

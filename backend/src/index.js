@@ -81,7 +81,13 @@ app.use((err, req, res, next) => {
     return res.status(status).json({ message: err.message });
   }
 
-  if (err && err.message === "Only image and video uploads are allowed") {
+  if (
+    err &&
+    [
+      "Only image and video uploads are allowed",
+      "Profile pictures must be JPEG, PNG, GIF, or WebP images",
+    ].includes(err.message)
+  ) {
     return res.status(400).json({ message: err.message });
   }
 

@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema(
     username: {
       type: String,
       trim: true,
+      lowercase: true,
       unique: true,
       sparse: true,
       minlength: 3,
@@ -58,6 +59,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["everyone", "nobody"],
       default: "everyone",
+    },
+    showOnlineStatus: {
+      type: Boolean,
+      default: true,
+    },
+    showTypingIndicator: {
+      type: Boolean,
+      default: true,
     },
     isBot: {
       type: Boolean,
